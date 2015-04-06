@@ -17,15 +17,32 @@ local Player = { new = createinstance }
 Player.__index = Player
 
 function Player:init(name, opts)
-    print("new player", name, opts.path, opts.bus)
     self.id = name:match('^org%.mpris%.MediaPlayer2%.(.*)$') or ''
+    self.address = opts.address
     self.properties = {}
     self.name = name
     self.path = opts.path
     self.bus = opts.bus
+    if not self.address then
+        local player = self
+        dbus.owner(name, function (address)
+            player.address = address
+            -- start listing deferred property changes
+            for _, props in pairs(player.properties) do
+                for _, prop in ipairs(props) do
+                    dbus.property.on(prop.name, prop.handler, {
+                        interface = INTERFACE[prop.interface],
+                        sender = player.address,
+                        bus = player.bus,
+                    })
+                end
+            end
+        end)
+    end
 end
 
 function Player:call(iface, method, ...)
+    if self.closed then return end
     dbus.call(method, { args = {...},
         interface = INTERFACE[iface],
         destination = self.name,
@@ -35,6 +52,7 @@ function Player:call(iface, method, ...)
 end
 
 function Player:get(iface, name, callback)
+    if self.closed then return end
     dbus.property.get(name, callback, {
         interface = INTERFACE[iface],
         destination = self.name,
@@ -44,6 +62,7 @@ function Player:get(iface, name, callback)
 end
 
 function Player:set(iface, name, value)
+    if self.closed then return end
     dbus.property.set(name, value, {
         interface = INTERFACE[iface],
         destination = self.name,
@@ -53,6 +72,7 @@ function Player:set(iface, name, value)
 end
 
 function Player:change(iface, name, callback)
+    if self.closed then return end
     local evname = string.format('%s.%s', iface, name)
     self.properties[evname] = self.properties[evname] or {}
     table.insert(self.properties[evname], {
@@ -61,11 +81,13 @@ function Player:change(iface, name, callback)
         handler = callback,
     })
     self:get(iface, name, callback)
-    dbus.property.on(name, callback, {
-        interface = INTERFACE[iface],
-        sender = self.name,
-        bus = self.bus,
-    })
+    if self.address then
+        dbus.property.on(name, callback, {
+            interface = INTERFACE[iface],
+            sender = self.address,
+            bus = self.bus,
+        })
+    end
 end
 
 function Player:raise()
@@ -113,6 +135,8 @@ function Player:uri(uri)
 end
 
 function Player:close()
+    if self.closed then return end
+    self.closed = true
     for _, prop in pairs(self.properties) do
         for _, ev in ipairs(prop) do
             dbus.property.off(ev.name, ev.handler,  {
@@ -155,14 +179,78 @@ function Client:getPlayerNames(callback)
 end
 
 function Client:getPlayers(callback)
-    local opts = self
+    local client = self
     return self:getPlayerNames(function (names)
-        local players = {}
+        client.players = {}
         for i, name in ipairs(names) do
-            players[name] = Player:new(name, opts)
+            client.players[name] = Player:new(name, client)
         end
-        return callback(players)
+        return callback(client.players)
     end)
+end
+
+local function haz(t, value)
+    for _, v in ipairs(t) do
+        if v == value then
+            return true
+        end
+    end
+    return false
+end
+
+function Client:updatePlayers(callback)
+    local client = self
+    return self:getPlayerNames(function (names)
+        local playernames = {}
+        local added, removed, unchanged = {}, {}, {}
+        for id, player in pairs(client.players) do
+            table.insert(playernames, player.name)
+            if haz(names, player.name) then
+                table.insert(unchanged, player)
+            else
+                table.insert(removed, player)
+                client.players[id] = nil
+                player:close()
+            end
+        end
+        for _, name in ipairs(names) do
+            if not haz(playernames, name) then
+                local player = Player:new(name, client)
+                client.players[name] = player
+                table.insert(added, player)
+            end
+        end
+        return callback(added, removed, unchanged)
+    end)
+end
+
+function Client:onPlayer(callback)
+    local client = self
+    local opts = setmetatable({}, { __index = client })
+    return dbus.on('NameOwnerChanged', function (iface, removed, added)
+        if tostring(iface):match('^org%.mpris%.MediaPlayer2%.') then
+            local player = (client.players or {})[iface]
+            if     added ~= '' and removed == '' then
+                if not player then
+                    opts.address = added
+                    player = Player:new(iface, opts)
+                    client.players[iface] = player
+                end
+            elseif added == '' and removed ~= '' then
+                if player and player.address == removed then
+                    client.players[iface] = nil
+                    player:close()
+                end
+            elseif added ~= '' and removed ~= '' then
+                if player and player.address == removed then
+                    player.address = added
+                end
+            end
+            if callback then
+                return callback(player)
+            end
+        end
+    end, { bus = self.bus, interface = 'org.freedesktop.DBus' })
 end
 
 return Client
