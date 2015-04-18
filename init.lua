@@ -1,5 +1,6 @@
 
 return {
-    Client = require("lua-mpris.client"),
+    Applet = require("mpris.applet"),
+    Client = require("mpris.client"),
 }
 

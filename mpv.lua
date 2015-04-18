@@ -1,4 +1,4 @@
-local Applet = require("lua-mpris.applet")
+local Applet = require("mpris.applet")
 
 local pid = tostring(mp):match(': (%w+)$') -- FIXME
 local mpris = Applet:new({ name = "mpv", id = 'instance' .. pid })

@@ -1,4 +1,4 @@
-package = "lua-mpris"
+package = "mpris"
 version = "scm-0"
 source = { url = "git://github.com/dodo/lua-mpris.git" }
 description = {
