@@ -5,10 +5,10 @@ description = {
     summary = "mpris implementation",
     detailed = "Media Player Remote Interfacing Specification lua module",
     homepage = "https://github.com/dodo/lua-mpris",
-    license = "MIT"
+    license = "MIT",
 }
 dependencies = { "lua >= 5.1", "lua-dbus >= scm-0" }
-bui ld = {
+build = {
    type = "builtin",
     modules = {
         init = "init.lua",
