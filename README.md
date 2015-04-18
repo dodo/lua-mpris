@@ -8,7 +8,7 @@ Requires [lua-dbus](https://github.com/dodo/lua-dbus).
 
 ## mpv
 
-`lua-mpris` comes with file `mpv.lua` which is a plugin for [mpv](http://mpv.io).
+`lua-mpris` comes with the file `mpv.lua` which is a plugin for [mpv](http://mpv.io).
 
 Install that file into ~/.config/mpv/scripts by simply doing:
 ```bash
