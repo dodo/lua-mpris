@@ -11,8 +11,8 @@ dependencies = { "lua >= 5.1", "lua-dbus >= scm-0" }
 build = {
    type = "builtin",
     modules = {
-        init = "init.lua",
-        applet = "applet.lua",
-        client = "client.lua",
+        ['mpris'] = "init.lua",
+        ['mpris.applet'] = "applet.lua",
+        ['mpris.client'] = "client.lua",
    }
 }
