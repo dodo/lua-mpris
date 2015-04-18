@@ -17,6 +17,7 @@ ln -s /path/to/lua-mpris/mpv.lua ~/.config/mpv/scripts/dbus.lua # cp works as we
 
 ## todo
 
+* DOCUMENTATION
 * org.mpris.MediaPlayer2.Player.Seeked
 * org.mpris.MediaPlayer2.Playlists
 * org.mpris.MediaPlayer2.TrackList
