@@ -1,3 +1,10 @@
+-- WORKAROUND find ldbus.so under ~/.config/mpv/scripts/
+for path in package.path:gmatch(";([^;]+)") do
+    if path:match(".config/mpv/scripts") then
+        package.cpath = path:match("(.*)%.lua$") .. ".so;" .. package.cpath
+    end
+end
+
 local Applet = require("mpris.applet")
 
 local pid = tostring(mp):match(': (%w+)$') -- FIXME
