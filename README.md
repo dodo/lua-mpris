@@ -9,8 +9,12 @@ Requires [lua-dbus](https://github.com/dodo/lua-dbus).
 ## installation
 
 ```bash
+# i686 and Arch:
 luarocks install --local --server=http://rocks.moonscript.org/manifests/daurnimator ldbus DBUS_INCDIR=/usr/include/dbus-1.0/ DBUS_ARCH_INCDIR=/usr/lib/dbus-1.0/include
-#                                                                                                                    or x64: DBUS_ARCH_INCDIR=/usr/lib/x86_64-linux-gnu/dbus-1.0/include
+
+# x86_64:
+luarocks install --local --server=http://rocks.moonscript.org/manifests/daurnimator ldbus DBUS_INCDIR=/usr/include/dbus-1.0/ DBUS_ARCH_INCDIR=/usr/lib/x86_64-linux-gnu/dbus-1.0/include
+
 luarocks install --local --server=http://luarocks.org/manifests/dodo lua-dbus
 luarocks install --local --server=http://luarocks.org/manifests/dodo mpris
 ```
