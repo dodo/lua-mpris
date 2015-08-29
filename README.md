@@ -25,7 +25,11 @@ luarocks install --local --server=http://luarocks.org/manifests/dodo mpris
 
 Install that file into ~/.config/mpv/scripts by simply doing:
 ```bash
-ln -s /path/to/lua-mpris/mpv.lua ~/.config/mpv/scripts/dbus.lua # cp works as well
+mkdir -p ~/.config/mpv/scripts/
+
+wget \
+'https://raw.githubusercontent.com/dodo/lua-mpris/master/mpv.lua' \
+-O ~/.config/mpv/scripts/mpris.lua
 ```
 
 ## todo
