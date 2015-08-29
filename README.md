@@ -9,8 +9,12 @@ Requires [lua-dbus](https://github.com/dodo/lua-dbus).
 ## installation
 
 ```bash
+# i686 and Arch:
 luarocks install --local --server=http://rocks.moonscript.org/manifests/daurnimator ldbus DBUS_INCDIR=/usr/include/dbus-1.0/ DBUS_ARCH_INCDIR=/usr/lib/dbus-1.0/include
-#                                                                                                                    or x64: DBUS_ARCH_INCDIR=/usr/lib/x86_64-linux-gnu/dbus-1.0/include
+
+# x86_64:
+luarocks install --local --server=http://rocks.moonscript.org/manifests/daurnimator ldbus DBUS_INCDIR=/usr/include/dbus-1.0/ DBUS_ARCH_INCDIR=/usr/lib/x86_64-linux-gnu/dbus-1.0/include
+
 luarocks install --local --server=http://luarocks.org/manifests/dodo lua-dbus
 luarocks install --local --server=http://luarocks.org/manifests/dodo mpris
 ```
@@ -21,23 +25,11 @@ luarocks install --local --server=http://luarocks.org/manifests/dodo mpris
 
 Install that file into ~/.config/mpv/scripts by simply doing:
 ```bash
-ln -s /path/to/lua-mpris/mpv.lua ~/.config/mpv/scripts/dbus.lua # cp works as well
+mkdir -p ~/.config/mpv/scripts/
 
-# when using mpv with lua5.2 under debian best you add the dependencies direclty:
-
-cd ~/.config/mpv/scripts
-git clone https://github.com/dodo/lua-dbus
-git clone https://github.com/dodo/lua-mpris mpris
-git clone https://github.com/dodo/ldbus
-
-cd ldbus
-luarocks make --local ldbus-scm-0.rockspec LUA_INCDIR=/usr/include/lua5.2 DBUS_INCDIR=/usr/include/dbus-1.0/ DBUS_ARCH_INCDIR=/usr/lib/dbus-1.0/include
-#                                                                                                    or x64: DBUS_ARCH_INCDIR=/usr/lib/x86_64-linux-gnu/dbus-1.0/include
-cd ..
-ln -s ldbus/ldbus.so
-
-ln -s mpris/mpv.lua dbus.lua
-
+wget \
+'https://raw.githubusercontent.com/dodo/lua-mpris/master/mpv.lua' \
+-O ~/.config/mpv/scripts/mpris.lua
 ```
 
 ## todo

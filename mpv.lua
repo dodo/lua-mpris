@@ -1,9 +1,5 @@
--- WORKAROUND find ldbus.so under ~/.config/mpv/scripts/
-for path in package.path:gmatch(";([^;]+)") do
-    if path:match(".config/mpv/scripts") then
-        package.cpath = path:match("(.*)%.lua$") .. ".so;" .. package.cpath
-    end
-end
+package.cpath = package.cpath .. ';./../../../.luarocks/lib/lua/5.2/?.so'
+package.path = package.path .. ';./../../../.luarocks/share/lua/5.2/?.lua'
 
 local Applet = require("mpris.applet")
 
