@@ -6,6 +6,7 @@ for path in package.path:gmatch(";([^;]+)") do
 end
 
 local Applet = require("mpris.applet")
+require("lfs")
 
 local pid = tostring(mp):match(': (%w+)$') -- FIXME
 local mpris = Applet:new({ name = "mpv", id = 'instance' .. pid })
@@ -48,6 +49,21 @@ function mpris.options.seek(offset)
     if type(offset) == 'number' then
         -- offset is in microseconds
         mp.commandv("seek", offset / 1e6)
+    end
+end
+
+function mpris.options.position()
+    value = mp.get_property_number('time-pos')
+    if value then
+        return value * 1e6
+    end
+    return 0
+end
+
+function mpris.options.setposition(trackid, position)
+    if type(position) == 'number' then
+        -- position is in microseconds
+        mp.commandv("seek", position / 1e6, "absolute")
     end
 end
 
@@ -105,6 +121,29 @@ local function update_title(name, title)
     else
         meta['xesam:title'] = nil
     end
+    assignments = {{'xesam:album', 'metadata/by-key/album'},
+                   {'xesam:albumArtist','metadata/by-key/album_artist'},
+                   {'xesam:artist','metadata/by-key/artist'},
+                   {'xesam:trackNumber','metadata/by-key/track'},
+                   {'xesam:genre','metadata/by-key/genre'},
+                   {'xesam:lyricist','metadata/by-key/lyricist'},
+                   {'xesam:discNumber','metadata/by-key/disc'}}
+    for k,assignment in pairs(assignments) do
+        value = mp.get_property(assignment[2])
+        if value or value ~= '' then
+            meta[assignment[1]] = value
+        else
+            meta[assignment[1]] = nil
+        end
+    end
+
+    meta['mpris:trackid'] = '/org/mpv/Track/123456'
+    path = mp.get_property('path')
+    if path or path ~= '' then
+        cwd = lfs.currentdir()
+        meta['mpris:artUrl'] = cwd..'/'..string.match(path, "(.-)([^\\/]-%.?([^%.\\/]*))$")..'/cover.jpg'
+        meta['xesam:url'] = cwd..'/'..path
+    end
     mpris.property:set('metadata', meta)
 end
 
@@ -135,8 +174,8 @@ mp.observe_property("idle", 'bool', update_idle)
 mp.observe_property("metadata/icy-title", 'string', update_title)
 mp.observe_property("media-title", 'string', update_title)
 
-update_length('length', mp.get_property_number('length'))
-mp.observe_property("length", 'number', update_length)
+update_length('duration', mp.get_property_number('duration'))
+mp.observe_property("duration", 'number', update_length)
 
 update_fullscreen('fullscreen', mp.get_property_bool('fullscreen'))
 mp.observe_property("fullscreen", 'bool', update_fullscreen)
