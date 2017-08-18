@@ -7,7 +7,7 @@ description = {
     homepage = "https://github.com/dodo/lua-mpris",
     license = "MIT",
 }
-dependencies = { "lua >= 5.1", "lua-dbus >= scm-0", "lfs" }
+dependencies = { "lua >= 5.1", "lua-dbus >= scm-0" }
 build = {
    type = "builtin",
     modules = {

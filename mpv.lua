@@ -6,7 +6,7 @@ for path in package.path:gmatch(";([^;]+)") do
 end
 
 local Applet = require("mpris.applet")
-require("lfs")
+local mputils = require 'mp.utils'
 
 local pid = tostring(mp):match(': (%w+)$') -- FIXME
 local mpris = Applet:new({ name = "mpv", id = 'instance' .. pid })
@@ -140,9 +140,10 @@ local function update_title(name, title)
     meta['mpris:trackid'] = '/org/mpv/Track/123456'
     path = mp.get_property('path')
     if path or path ~= '' then
-        cwd = lfs.currentdir()
-        meta['mpris:artUrl'] = cwd..'/'..string.match(path, "(.-)([^\\/]-%.?([^%.\\/]*))$")..'/cover.jpg'
-        meta['xesam:url'] = cwd..'/'..path
+        cwd = mputils.getcwd()
+        local dir, fname = mputils.split_path(path)
+        meta['mpris:artUrl'] = mputils.join_path(mputils.join_path(cwd, dir), 'cover.jpg')
+        meta['xesam:url'] = mputils.join_path(cwd, path)
     end
     mpris.property:set('metadata', meta)
 end
