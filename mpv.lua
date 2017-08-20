@@ -11,6 +11,16 @@ local mputils = require 'mp.utils'
 local pid = tostring(mp):match(': (%w+)$') -- FIXME
 local mpris = Applet:new({ name = "mpv", id = 'instance' .. pid })
 
+local assignments = {{'xesam:album', 'metadata/by-key/album'},
+                     {'xesam:albumArtist','metadata/by-key/album_artist'},
+                     {'xesam:artist','metadata/by-key/artist'},
+                     {'xesam:trackNumber','metadata/by-key/track'},
+                     {'xesam:genre','metadata/by-key/genre'},
+                     {'xesam:lyricist','metadata/by-key/lyricist'},
+                     {'xesam:discNumber','metadata/by-key/disc'}}
+
+local cover_filenames = {'cover.jpg', 'cover.png', 'folder.jpg', 'folder.png', 'front.jpg', 'front.png'}
+
 --- sync
 
 mp.add_periodic_timer(0.1, function () mpris.dbus.poll() end)
@@ -114,6 +124,14 @@ local function update_idle(name, idle)
     end
 end
 
+local function table_contains(table, item)
+    for key, value in pairs(table) do
+        if value == item then return key end
+    end
+    return false
+end
+
+
 local function update_title(name, title)
     local meta = mpris.property:get('metadata')
     if title or title ~= '' then
@@ -121,13 +139,6 @@ local function update_title(name, title)
     else
         meta['xesam:title'] = nil
     end
-    assignments = {{'xesam:album', 'metadata/by-key/album'},
-                   {'xesam:albumArtist','metadata/by-key/album_artist'},
-                   {'xesam:artist','metadata/by-key/artist'},
-                   {'xesam:trackNumber','metadata/by-key/track'},
-                   {'xesam:genre','metadata/by-key/genre'},
-                   {'xesam:lyricist','metadata/by-key/lyricist'},
-                   {'xesam:discNumber','metadata/by-key/disc'}}
     for k,assignment in pairs(assignments) do
         value = mp.get_property(assignment[2])
         if value or value ~= '' then
@@ -141,9 +152,15 @@ local function update_title(name, title)
     path = mp.get_property('path')
     if path or path ~= '' then
         cwd = mputils.getcwd()
-        local dir, fname = mputils.split_path(path)
-        meta['mpris:artUrl'] = mputils.join_path(mputils.join_path(cwd, dir), 'cover.jpg')
         meta['xesam:url'] = mputils.join_path(cwd, path)
+        local dir, fname = mputils.split_path(path)
+        files = mputils.readdir(dir)
+        for _ , cover_filename in pairs(cover_filenames) do
+            if table_contains(files, cover_filename) then
+                meta['mpris:artUrl'] = mputils.join_path(mputils.join_path(cwd, dir), cover_filename)
+                break;
+            end
+        end
     end
     mpris.property:set('metadata', meta)
 end
