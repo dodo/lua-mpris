@@ -5,7 +5,7 @@ for path in package.path:gmatch(";([^;]+)") do
     end
 end
 
-local Applet = require("mpris.applet")
+local Applet = require("lua-mpris.applet")
 local mputils = require 'mp.utils'
 
 local pid = tostring(mp):match(': (%w+)$') -- FIXME
