@@ -149,6 +149,8 @@ local function update_title(name, title)
     end
 
     meta['mpris:trackid'] = '/org/mpv/Track/123456'
+    meta['mpris:artUrl'] = nil
+    meta['xesam:url'] = nil
     path = mp.get_property('path')
     if path or path ~= '' then
         cwd = mputils.getcwd()
