@@ -125,8 +125,10 @@ local function update_idle(name, idle)
 end
 
 local function table_contains(table, item)
-    for key, value in pairs(table) do
-        if value == item then return key end
+    if table then
+        for key, value in pairs(table) do
+            if value == item then return key end
+        end
     end
     return false
 end
