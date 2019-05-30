@@ -5,6 +5,67 @@ for path in package.path:gmatch(";([^;]+)") do
     end
 end
 
+
+-- remove_invalid_utf8_chars takes a string as parameter and returns the same
+-- string with all invalid utf8 characters removed.
+-- Based on the is_valid_utf8 function from https://gist.github.com/mpg/77135
+function remove_invalid_utf8_chars(str)
+    local len = string.len(str)
+    local not_cont = function(b) return b == nil or b < 128 or b >= 192 end
+    local i = 0
+    local next_byte = function()
+        i = i + 1
+        return string.byte(str, i)
+    end
+    local r = ''
+    while i < len do
+        local seq = {}
+        seq[1] = next_byte()
+	add = true
+	add_from = i
+        if seq[1] >= 245 then
+
+            add = false
+        end
+        if add and seq[1] >= 128 then
+            local offset -- non-coding bits of the 1st byte
+            for l, threshold in ipairs{192, 224, 240} do
+                if seq[1] >= threshold then     -- >= l byte sequence
+                    seq[l] = next_byte()
+
+                    if not_cont(seq[l]) then
+                        add = false
+                    end
+                    offset = threshold
+                end
+            end
+            if offset == nil then
+                add = false
+            end
+            -- compute the code point for some verifications
+	    if add then
+                local code_point = seq[1] - offset
+                for j = 2, #seq do
+                    code_point = code_point * 64 + seq[j] - 128
+                end
+                local n -- nominal length of the bytes sequence
+                if     code_point <= 0x00007F then n = 1
+                elseif code_point <= 0x0007FF then n = 2
+                elseif code_point <= 0x00FFFF then n = 3
+                elseif code_point <= 0x10FFFF then n = 4
+                end
+                if n == nil or n ~= #seq or (code_point >= 0xD800 and code_point <= 0xDFFF) then
+                    add = false
+                end
+            end
+        end -- if seq[0] >= 128
+	if add then
+	    r = r .. string.sub(str, add_from, i)
+	end
+    end
+    return r
+end
+
 local Applet = require("lua-mpris.applet")
 local mputils = require 'mp.utils'
 
@@ -137,14 +198,18 @@ end
 local function update_title(name, title)
     local meta = mpris.property:get('metadata')
     if title or title ~= '' then
-        meta['xesam:title'] = title
+        meta['xesam:title'] = remove_invalid_utf8_chars(title)
     else
         meta['xesam:title'] = nil
     end
     for k,assignment in pairs(assignments) do
         value = mp.get_property(assignment[2])
         if value or value ~= '' then
-            meta[assignment[1]] = value
+            if type(value) == 'string' then
+                meta[assignment[1]] = remove_invalid_utf8_chars(value)
+            else
+                meta[assignment[1]] = value
+	    end
         else
             meta[assignment[1]] = nil
         end
