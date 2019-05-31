@@ -6,64 +6,66 @@ for path in package.path:gmatch(";([^;]+)") do
 end
 
 
--- remove_invalid_utf8_chars takes a string as parameter and returns the same
--- string with all invalid utf8 characters removed.
--- Based on the is_valid_utf8 function from https://gist.github.com/mpg/77135
-function remove_invalid_utf8_chars(str)
+local valid_utf8_sequences = { {{0,127}},
+                          {{194,223}, {128,191}},
+                          {     224 , {160,191}, {128,191}},
+                          {{225,236}, {128,191}, {128,191}},
+                          {     237 , {128,159}, {128,191}},
+                          {{238,239}, {128,191}, {128,191}},
+                          {     240 , {144,191}, {128,191}, {128,191}},
+                          {{241,243}, {128,191}, {128,191}, {128,191}},
+                          {     244 , {128,143}, {128,191}, {128,191}}
+                        }
+
+-- Returns the length (in bytes) of the character at (byte) position i of
+-- the string str . Returns -1 if there's an invalid character at position i.
+function utf8_char_length(str, i)
     local len = string.len(str)
-    local not_cont = function(b) return b == nil or b < 128 or b >= 192 end
-    local i = 0
-    local next_byte = function()
-        i = i + 1
-        return string.byte(str, i)
-    end
-    local r = ''
-    while i < len do
-        local seq = {}
-        seq[1] = next_byte()
-	add = true
-	add_from = i
-        if seq[1] >= 245 then
 
-            add = false
+    for k, sequence in pairs(valid_sequences) do
+        if i + #sequence - 1 > len then
+            return -1
         end
-        if add and seq[1] >= 128 then
-            local offset -- non-coding bits of the 1st byte
-            for l, threshold in ipairs{192, 224, 240} do
-                if seq[1] >= threshold then     -- >= l byte sequence
-                    seq[l] = next_byte()
-
-                    if not_cont(seq[l]) then
-                        add = false
-                    end
-                    offset = threshold
+        ok = true
+        for j, valid in pairs(sequence) do
+            c = string.byte(str, i+j-1)
+            if type(valid) == 'table' then
+                if c < valid[1] or c > valid[2] then
+                    ok = false
+                    break
+                end
+            else
+                if c ~= valid then
+                    ok = false
+                    break
                 end
             end
-            if offset == nil then
-                add = false
-            end
-            -- compute the code point for some verifications
-	    if add then
-                local code_point = seq[1] - offset
-                for j = 2, #seq do
-                    code_point = code_point * 64 + seq[j] - 128
-                end
-                local n -- nominal length of the bytes sequence
-                if     code_point <= 0x00007F then n = 1
-                elseif code_point <= 0x0007FF then n = 2
-                elseif code_point <= 0x00FFFF then n = 3
-                elseif code_point <= 0x10FFFF then n = 4
-                end
-                if n == nil or n ~= #seq or (code_point >= 0xD800 and code_point <= 0xDFFF) then
-                    add = false
-                end
-            end
-        end -- if seq[0] >= 128
-	if add then
-	    r = r .. string.sub(str, add_from, i)
-	end
+        end
+        if ok then
+            return #sequence
+        end
     end
-    return r
+    return -1
+end
+
+
+-- Returns the string str with invalid utf8 characters removed
+function remove_invalid_utf8_chars(str)
+    local i = 1
+    local len = string.len(str)
+
+    while i <= len do
+        local seq = {}
+        local char_length = char_length(str, i)
+        if char_length > 0 then
+            i = i + char_length
+        else
+            str = string.sub(str, 1, i - 1) .. string.sub(str, i + 1)
+            len = len - 1
+        end
+    end
+
+    return str
 end
 
 local Applet = require("lua-mpris.applet")
@@ -209,7 +211,7 @@ local function update_title(name, title)
                 meta[assignment[1]] = remove_invalid_utf8_chars(value)
             else
                 meta[assignment[1]] = value
-	    end
+            end
         else
             meta[assignment[1]] = nil
         end
