@@ -7,22 +7,22 @@ end
 
 
 local valid_utf8_sequences = { {{0,127}},
-                          {{194,223}, {128,191}},
-                          {     224 , {160,191}, {128,191}},
-                          {{225,236}, {128,191}, {128,191}},
-                          {     237 , {128,159}, {128,191}},
-                          {{238,239}, {128,191}, {128,191}},
-                          {     240 , {144,191}, {128,191}, {128,191}},
-                          {{241,243}, {128,191}, {128,191}, {128,191}},
-                          {     244 , {128,143}, {128,191}, {128,191}}
-                        }
+                               {{194,223}, {128,191}},
+                               {     224 , {160,191}, {128,191}},
+                               {{225,236}, {128,191}, {128,191}},
+                               {     237 , {128,159}, {128,191}},
+                               {{238,239}, {128,191}, {128,191}},
+                               {     240 , {144,191}, {128,191}, {128,191}},
+                               {{241,243}, {128,191}, {128,191}, {128,191}},
+                               {     244 , {128,143}, {128,191}, {128,191}}
+                             }
 
 -- Returns the length (in bytes) of the character at (byte) position i of
 -- the string str . Returns -1 if there's an invalid character at position i.
 function utf8_char_length(str, i)
     local len = string.len(str)
 
-    for k, sequence in pairs(valid_sequences) do
+    for k, sequence in pairs(valid_utf8_sequences) do
         if i + #sequence - 1 > len then
             return -1
         end
@@ -56,7 +56,7 @@ function remove_invalid_utf8_chars(str)
 
     while i <= len do
         local seq = {}
-        local char_length = char_length(str, i)
+        local char_length = utf8_char_length(str, i)
         if char_length > 0 then
             i = i + char_length
         else
