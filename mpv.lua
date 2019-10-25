@@ -84,6 +84,75 @@ local assignments = {{'xesam:album', 'metadata/by-key/album'},
 
 local cover_filenames = {'cover.jpg', 'cover.png', 'folder.jpg', 'folder.png', 'front.jpg', 'front.png'}
 
+local demuxer_to_mimetype = {
+ aac="audio/aac",
+ ac3="audio/ac3",
+ flac="audio/flac",
+ m4a="audio/mp4",
+ mov="video/quicktime",
+ mp4={"audio/mp4","video/mp4"},
+ m4a="audio/mp4",
+ mj2="video/mj2",
+ mp3="audio/mpeg",
+ ogg={"audio/ogg", "video/ogg", "video/x-ogm+ogg", "video/x-theora+ogg"},
+ webm={"audio/webm", "video/webm"},
+ aiff="audio/x-aiff",
+ ape="audio/x-ape",
+ gsm="audio/x-gsm",
+ xwma="audio/x-ms-wma",
+ mpc="audio/x-musepack",
+ wav="audio/x-wav",
+ wv="audio/x-wavpack",
+ dv="video/dv",
+ m4v="video/mp4",
+ mpeg="video/mpeg",
+ flv="video/x-flv",
+ matroska="video/x-matroska",
+ mjpeg="video/x-mjpeg",
+ avi="video/x-msvideo",
+ }
+demuxer_to_mimetype["3gp"]="video/3gpp"
+demuxer_to_mimetype["3g2"]="video/3gpp2"
+
+function split(str, pat)
+   local t = {}  -- NOTE: use {n = 0} in Lua-5.0
+   local fpat = "(.-)" .. pat
+   local last_end = 1
+   local s, e, cap = str:find(fpat, 1)
+   while s do
+      if s ~= 1 or cap ~= "" then
+         table.insert(t,cap)
+      end
+      last_end = e+1
+      s, e, cap = str:find(fpat, last_end)
+   end
+   if last_end <= #str then
+      cap = str:sub(last_end)
+      table.insert(t, cap)
+   end
+   return t
+end
+
+function get_supported_mimetypes()
+   mimetypes = {}
+   demuxers = mp.get_property_native('demuxer-lavf-list')
+   for _, v in pairs(demuxers) do
+	for _, d in pairs(split(v, ",")) do
+            mime = demuxer_to_mimetype[d]
+            if mime then
+		if type(mime) == 'table' then
+	            for _, mimeit in pairs(mime) do
+                        table.insert(mimetypes, mimeit)
+                    end
+		else
+                    table.insert(mimetypes, mime)
+		end
+            end
+	end
+   end
+   return mimetypes
+end
+
 --- sync
 
 mp.add_periodic_timer(0.1, function () mpris.dbus.poll() end)
@@ -271,5 +340,8 @@ mp.observe_property("fullscreen", 'bool', update_fullscreen)
 mpris.property:set('setfullscreen', true)
 
 
-mpris.property:set('urischemes', mp.get_protocols and mp.get_protocols() or {})
-mpris.property:set('mimetypes', mp.get_mimetypes and mp.get_mimetypes() or {}) -- TODO
+
+protocol_list = mp.get_property_native('protocol-list')
+supported_mimetypes = get_supported_mimetypes()
+mpris.property:set('urischemes', protocol_list or {})
+mpris.property:set('mimetypes', supported_mimetypes or {})
