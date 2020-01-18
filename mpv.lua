@@ -5,10 +5,153 @@ for path in package.path:gmatch(";([^;]+)") do
     end
 end
 
-local Applet = require("mpris.applet")
+
+local valid_utf8_sequences = { {{0,127}},
+                               {{194,223}, {128,191}},
+                               {     224 , {160,191}, {128,191}},
+                               {{225,236}, {128,191}, {128,191}},
+                               {     237 , {128,159}, {128,191}},
+                               {{238,239}, {128,191}, {128,191}},
+                               {     240 , {144,191}, {128,191}, {128,191}},
+                               {{241,243}, {128,191}, {128,191}, {128,191}},
+                               {     244 , {128,143}, {128,191}, {128,191}}
+                             }
+
+-- Returns the length (in bytes) of the character at (byte) position i of
+-- the string str . Returns -1 if there's an invalid character at position i.
+function utf8_char_length(str, i)
+    local len = string.len(str)
+
+    for k, sequence in pairs(valid_utf8_sequences) do
+        if i + #sequence - 1 > len then
+            return -1
+        end
+        ok = true
+        for j, valid in pairs(sequence) do
+            c = string.byte(str, i+j-1)
+            if type(valid) == 'table' then
+                if c < valid[1] or c > valid[2] then
+                    ok = false
+                    break
+                end
+            else
+                if c ~= valid then
+                    ok = false
+                    break
+                end
+            end
+        end
+        if ok then
+            return #sequence
+        end
+    end
+    return -1
+end
+
+
+-- Returns the string str with invalid utf8 characters removed
+function remove_invalid_utf8_chars(str)
+    local i = 1
+    local len = string.len(str)
+
+    while i <= len do
+        local seq = {}
+        local char_length = utf8_char_length(str, i)
+        if char_length > 0 then
+            i = i + char_length
+        else
+            str = string.sub(str, 1, i - 1) .. string.sub(str, i + 1)
+            len = len - 1
+        end
+    end
+
+    return str
+end
+
+local Applet = require("lua-mpris.applet")
+local mputils = require 'mp.utils'
 
 local pid = tostring(mp):match(': (%w+)$') -- FIXME
 local mpris = Applet:new({ name = "mpv", id = 'instance' .. pid })
+
+local assignments = {{'xesam:album', 'metadata/by-key/album'},
+                     {'xesam:albumArtist','metadata/by-key/album_artist'},
+                     {'xesam:artist','metadata/by-key/artist'},
+                     {'xesam:trackNumber','metadata/by-key/track'},
+                     {'xesam:genre','metadata/by-key/genre'},
+                     {'xesam:lyricist','metadata/by-key/lyricist'},
+                     {'xesam:discNumber','metadata/by-key/disc'}}
+
+local cover_filenames = {'cover.jpg', 'cover.png', 'folder.jpg', 'folder.png', 'front.jpg', 'front.png'}
+
+local demuxer_to_mimetype = {
+ aac="audio/aac",
+ ac3="audio/ac3",
+ flac="audio/flac",
+ m4a="audio/mp4",
+ mov="video/quicktime",
+ mp4={"audio/mp4","video/mp4"},
+ m4a="audio/mp4",
+ mj2="video/mj2",
+ mp3="audio/mpeg",
+ ogg={"audio/ogg", "video/ogg", "video/x-ogm+ogg", "video/x-theora+ogg"},
+ webm={"audio/webm", "video/webm"},
+ aiff="audio/x-aiff",
+ ape="audio/x-ape",
+ gsm="audio/x-gsm",
+ xwma="audio/x-ms-wma",
+ mpc="audio/x-musepack",
+ wav="audio/x-wav",
+ wv="audio/x-wavpack",
+ dv="video/dv",
+ m4v="video/mp4",
+ mpeg="video/mpeg",
+ flv="video/x-flv",
+ matroska="video/x-matroska",
+ mjpeg="video/x-mjpeg",
+ avi="video/x-msvideo",
+ }
+demuxer_to_mimetype["3gp"]="video/3gpp"
+demuxer_to_mimetype["3g2"]="video/3gpp2"
+
+function split(str, pat)
+   local t = {}  -- NOTE: use {n = 0} in Lua-5.0
+   local fpat = "(.-)" .. pat
+   local last_end = 1
+   local s, e, cap = str:find(fpat, 1)
+   while s do
+      if s ~= 1 or cap ~= "" then
+         table.insert(t,cap)
+      end
+      last_end = e+1
+      s, e, cap = str:find(fpat, last_end)
+   end
+   if last_end <= #str then
+      cap = str:sub(last_end)
+      table.insert(t, cap)
+   end
+   return t
+end
+
+function get_supported_mimetypes()
+   mimetypes = {}
+   demuxers = mp.get_property_native('demuxer-lavf-list')
+   for _, v in pairs(demuxers) do
+	for _, d in pairs(split(v, ",")) do
+            mime = demuxer_to_mimetype[d]
+            if mime then
+		if type(mime) == 'table' then
+	            for _, mimeit in pairs(mime) do
+                        table.insert(mimetypes, mimeit)
+                    end
+		else
+                    table.insert(mimetypes, mime)
+		end
+            end
+	end
+   end
+   return mimetypes
+end
 
 --- sync
 
@@ -48,6 +191,21 @@ function mpris.options.seek(offset)
     if type(offset) == 'number' then
         -- offset is in microseconds
         mp.commandv("seek", offset / 1e6)
+    end
+end
+
+function mpris.options.position()
+    value = mp.get_property_number('time-pos')
+    if value then
+        return value * 1e6
+    end
+    return 0
+end
+
+function mpris.options.setposition(trackid, position)
+    if type(position) == 'number' then
+        -- position is in microseconds
+        mp.commandv("seek", position / 1e6, "absolute")
     end
 end
 
@@ -98,12 +256,51 @@ local function update_idle(name, idle)
     end
 end
 
+local function table_contains(table, item)
+    if table then
+        for key, value in pairs(table) do
+            if value == item then return key end
+        end
+    end
+    return false
+end
+
+
 local function update_title(name, title)
     local meta = mpris.property:get('metadata')
     if title or title ~= '' then
-        meta['xesam:title'] = title
+        meta['xesam:title'] = remove_invalid_utf8_chars(title)
     else
         meta['xesam:title'] = nil
+    end
+    for k,assignment in pairs(assignments) do
+        value = mp.get_property(assignment[2])
+        if value or value ~= '' then
+            if type(value) == 'string' then
+                meta[assignment[1]] = remove_invalid_utf8_chars(value)
+            else
+                meta[assignment[1]] = value
+            end
+        else
+            meta[assignment[1]] = nil
+        end
+    end
+
+    meta['mpris:trackid'] = '/org/mpv/Track/123456'
+    meta['mpris:artUrl'] = nil
+    meta['xesam:url'] = nil
+    path = mp.get_property('path')
+    if path or path ~= '' then
+        cwd = mputils.getcwd()
+        meta['xesam:url'] = mputils.join_path(cwd, path)
+        local dir, fname = mputils.split_path(path)
+        files = mputils.readdir(dir)
+        for _ , cover_filename in pairs(cover_filenames) do
+            if table_contains(files, cover_filename) then
+                meta['mpris:artUrl'] = mputils.join_path(mputils.join_path(cwd, dir), cover_filename)
+                break;
+            end
+        end
     end
     mpris.property:set('metadata', meta)
 end
@@ -135,13 +332,16 @@ mp.observe_property("idle", 'bool', update_idle)
 mp.observe_property("metadata/icy-title", 'string', update_title)
 mp.observe_property("media-title", 'string', update_title)
 
-update_length('length', mp.get_property_number('length'))
-mp.observe_property("length", 'number', update_length)
+update_length('duration', mp.get_property_number('duration'))
+mp.observe_property("duration", 'number', update_length)
 
 update_fullscreen('fullscreen', mp.get_property_bool('fullscreen'))
 mp.observe_property("fullscreen", 'bool', update_fullscreen)
 mpris.property:set('setfullscreen', true)
 
 
-mpris.property:set('urischemes', mp.get_protocols and mp.get_protocols() or {})
-mpris.property:set('mimetypes', mp.get_mimetypes and mp.get_mimetypes() or {}) -- TODO
+
+protocol_list = mp.get_property_native('protocol-list')
+supported_mimetypes = get_supported_mimetypes()
+mpris.property:set('urischemes', protocol_list or {})
+mpris.property:set('mimetypes', supported_mimetypes or {})

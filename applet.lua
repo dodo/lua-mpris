@@ -129,6 +129,7 @@ function Properties:getters(interface, props)
         local property = { type = opts.type }
         if opts.write then property.write = self:setter(opts.write) end
         if opts.read  then property.read  = self:getter(opts.read, name, interface) end
+        if opts.callback then property.read = opts.callback end
         properties[name] = property
     end
     return properties
@@ -170,7 +171,7 @@ function Applet:init(opts)
         next          = true,
         pause         = true,
         play          = true,
-        seek          = false,
+        seek          = true,
         tracklist     = false,
         fullscreen    = false,
         setfullscreen = false,
@@ -225,6 +226,7 @@ function Applet:init(opts)
             MinimumRate = { type = 'd', read = {'minrate'} },
             MaximumRate = { type = 'd', read = {'maxrate'} },
             Rate = { type = 'd', read = {'rate'}, write = 'rate' },
+            Position = { type = 'x', callback = backcall(opts, 'position') },
         }),
     })
 end
